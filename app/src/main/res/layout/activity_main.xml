@@ -12,7 +12,7 @@
         android:id="@+id/button"
         android:layout_alignParentBottom="true"
         android:layout_centerHorizontal="true"
-        android:nestedScrollingEnabled="false"
+        android:nestedScrollingEnabled="true"
         android:onClick="onButtonClick" />
 
 </RelativeLayout>

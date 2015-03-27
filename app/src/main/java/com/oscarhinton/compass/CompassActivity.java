@@ -10,12 +10,19 @@ import android.support.v7.app.ActionBarActivity;
 import android.view.animation.Animation;
 import android.view.animation.RotateAnimation;
 import android.widget.ImageView;
+import android.widget.TextView;
 
-public class CompassActivity extends ActionBarActivity implements SensorEventListener {
+import java.text.DecimalFormat;
+import java.util.ArrayDeque;
+
+public class CompassActivity extends Activity implements SensorEventListener {
 
     // Code from http://www.techrepublic.com/article/pro-tip-create-your-own-magnetic-compass-using-androids-internal-sensors/
 
     private ImageView mPointer;
+    private TextView _textView;
+    private AngleLowpassFilter _filter = new AngleLowpassFilter();
+
     private SensorManager mSensorManager;
     private Sensor mAccelerometer;
     private Sensor mMagnetometer;
@@ -30,11 +37,12 @@ public class CompassActivity extends ActionBarActivity implements SensorEventLis
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
+        setContentView(R.layout.activity_compass);
         mSensorManager = (SensorManager)getSystemService(SENSOR_SERVICE);
         mAccelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
         mMagnetometer = mSensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
         mPointer = (ImageView) findViewById(R.id.pointer);
+        _textView = (TextView) findViewById(R.id.textView);
     }
 
     protected void onResume() {
@@ -62,7 +70,11 @@ public class CompassActivity extends ActionBarActivity implements SensorEventLis
             SensorManager.getRotationMatrix(mR, null, mLastAccelerometer, mLastMagnetometer);
             SensorManager.getOrientation(mR, mOrientation);
             float azimuthInRadians = mOrientation[0];
-            float azimuthInDegress = (float)(Math.toDegrees(azimuthInRadians)+360)%360;
+
+            _filter.add(azimuthInRadians);
+
+            float azimuthInDegress = (float)(Math.toDegrees(_filter.average())+360)%360;
+
             RotateAnimation ra = new RotateAnimation(
                     mCurrentDegree,
                     -azimuthInDegress,
@@ -76,6 +88,7 @@ public class CompassActivity extends ActionBarActivity implements SensorEventLis
 
             mPointer.startAnimation(ra);
             mCurrentDegree = -azimuthInDegress;
+            _textView.setText(new DecimalFormat("#.##").format(-mCurrentDegree) + "°");
         }
     }
 
@@ -83,6 +96,45 @@ public class CompassActivity extends ActionBarActivity implements SensorEventLis
     public void onAccuracyChanged(Sensor sensor, int accuracy) {
         // TODO Auto-generated method stub
 
+    }
+
+    /**
+     * Smooth out the angles.
+     *
+     * http://stackoverflow.com/a/18911252
+     */
+    public class AngleLowpassFilter {
+
+        private final int LENGTH = 25;
+
+        private float sumSin, sumCos;
+
+        private ArrayDeque<Float> queue = new ArrayDeque<Float>();
+
+        public void add(float radians){
+
+            sumSin += (float) Math.sin(radians);
+
+            sumCos += (float) Math.cos(radians);
+
+            queue.add(radians);
+
+            if(queue.size() > LENGTH){
+
+                float old = queue.poll();
+
+                sumSin -= Math.sin(old);
+
+                sumCos -= Math.cos(old);
+            }
+        }
+
+        public float average(){
+
+            int size = queue.size();
+
+            return (float) Math.atan2(sumSin / size, sumCos / size);
+        }
     }
 
 }
